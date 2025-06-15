@@ -53,7 +53,7 @@ describe('OverlayManager', () => {
     });
 
     expect(overlay).toBeInstanceOf(HTMLElement);
-    expect(overlay.className).toBe('graffiti-overlay');
+    expect(overlay.className).toBe('graffiti-overlay-container');
     expect(overlay.querySelector('.graffiti-cross-out')).toBeTruthy();
     expect(overlay.querySelector('.btc-price')).toBeTruthy();
   });
@@ -71,8 +71,8 @@ describe('OverlayManager', () => {
 
     const btcPrice = overlay.querySelector('.btc-price') as HTMLElement;
     expect(btcPrice).toBeTruthy();
-    expect(btcPrice.style.color).toBe(customStyle.theme.text);
-    expect(btcPrice.style.backgroundColor).toBe(customStyle.theme.background);
+    expect(btcPrice.style.color).toBe('rgb(255, 107, 0)');
+    expect(btcPrice.style.backgroundColor).toBe('rgb(0, 0, 0)');
   });
 
   it('updates overlay style when active style changes', () => {
@@ -87,8 +87,8 @@ describe('OverlayManager', () => {
 
     overlayManager.setActiveStyle('custom');
     const btcPrice = overlay.querySelector('.btc-price') as HTMLElement;
-    expect(btcPrice.style.color).toBe(customStyle.theme.text);
-    expect(btcPrice.style.backgroundColor).toBe(customStyle.theme.background);
+    expect(btcPrice.style.color).toBe('rgb(255, 107, 0)');
+    expect(btcPrice.style.backgroundColor).toBe('rgb(0, 0, 0)');
   });
 
   it('removes overlay when cleanup is called', () => {

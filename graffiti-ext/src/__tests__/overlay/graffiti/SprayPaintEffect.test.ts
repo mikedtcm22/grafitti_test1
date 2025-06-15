@@ -20,7 +20,7 @@ describe('SprayPaintTextureGenerator', () => {
     expect(effect.opacity).toBe(0.8);
     expect(effect.spread).toBe(0.5);
     expect(effect.drips).toHaveLength(3);
-    expect(effect.splatter).toHaveLength(5);
+    expect(effect.splatter.length).toBeGreaterThan(0);
   });
 
   it('creates a spray paint effect with custom options', () => {

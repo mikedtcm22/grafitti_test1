@@ -1,0 +1,1 @@
+ALTER TABLE profiles ADD CONSTRAINT unique_display_name UNIQUE (display_name); 

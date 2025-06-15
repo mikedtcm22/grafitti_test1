@@ -33,6 +33,7 @@ module.exports = {
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
   testPathIgnorePatterns: [
     '/node_modules/',
-    '/src/__tests__/utils/'
+    '/src/__tests__/utils/',
+    '/scripts/'
   ]
 }; 
