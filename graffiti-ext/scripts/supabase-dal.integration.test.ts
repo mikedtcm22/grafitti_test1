@@ -1,3 +1,4 @@
+import { v4 as uuidv4 } from 'uuid';
 import { SupabaseDAL } from '../src/data/index';
 import { Profile, Style, Tag } from '../src/data/types';
 
@@ -18,7 +19,8 @@ async function runIntegrationTests() {
 
   try {
     // Test createProfile
-    createdProfile = await dal.createProfile('integration_test_user', 'test_hash');
+    const uniqueName = `integration_test_user_${uuidv4().slice(0, 8)}`;
+    createdProfile = await dal.createProfile(uniqueName, 'test_hash');
     console.log('Created profile:', createdProfile);
 
     // Test createStyle
