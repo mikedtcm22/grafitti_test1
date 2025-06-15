@@ -1,0 +1,34 @@
+{
+  "manifest_version": 3,
+  "name": "Graffiti Extension",
+  "version": "0.1.0",
+  "description": "Add graffiti-style annotations to any website via right-click context menu.",
+  "permissions": [
+    "contextMenus",
+    "scripting",
+    "storage",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Graffiti Extension",
+    "default_popup": "popup/index.html"
+  },
+  "icons": {
+    "16": "vite.svg",
+    "48": "vite.svg",
+    "128": "vite.svg"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["contentScript.js"],
+      "run_at": "document_idle"
+    }
+  ]
+} 

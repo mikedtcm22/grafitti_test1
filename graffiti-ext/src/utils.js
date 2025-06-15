@@ -1,0 +1,1 @@
+// Ensure ESM exports are used only in utility files 
