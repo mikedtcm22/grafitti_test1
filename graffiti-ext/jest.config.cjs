@@ -4,8 +4,8 @@ const tsJestTransformCfg = createDefaultPreset().transform;
 /** @type {import('jest').Config} */
 module.exports = {
   preset: 'ts-jest',
-  // Use 'jsdom' only for front-end tests; 'node' is better for backend/ESM
-  testEnvironment: 'node',
+  // Default to jsdom for browser-like tests; use @jest-environment node in files that need node
+  testEnvironment: 'jsdom',
   setupFiles: [
     '<rootDir>/jest.setup.js',
     '<rootDir>/src/__tests__/utils/mocks.ts'
