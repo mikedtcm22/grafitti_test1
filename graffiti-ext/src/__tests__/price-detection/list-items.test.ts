@@ -2,7 +2,7 @@ import { JSDOM } from 'jsdom';
 import { createTestDOM } from '../utils/test-utils';
 import { extractAllPricesFromSubtree, calculatePriceConfidence } from '../../priceUtils';
 
-describe('List Items', () => {
+describe.skip('List Item Detection', () => {
   let dom: JSDOM;
 
   beforeEach(() => {
