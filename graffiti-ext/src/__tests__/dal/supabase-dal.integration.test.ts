@@ -3,9 +3,9 @@ import { Profile, Style, Tag } from '../../data/types';
 import { v4 as uuidv4 } from 'uuid';
 
 const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
 
-(supabaseUrl && supabaseAnonKey ? describe : describe.skip)('SupabaseDAL (integration)', () => {
+(supabaseUrl && supabaseServiceKey ? describe : describe.skip)('SupabaseDAL (integration)', () => {
   let dal: SupabaseDAL;
   const uniqueId = uuidv4().slice(0, 8);
   const testProfileName = `test_profile_${uniqueId}`;
@@ -16,7 +16,7 @@ const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
   let createdTag: Tag | undefined;
 
   beforeAll(() => {
-    dal = new SupabaseDAL(supabaseUrl!, supabaseAnonKey!);
+    dal = new SupabaseDAL(supabaseUrl!, supabaseServiceKey!);
   });
 
   afterEach(async () => {
