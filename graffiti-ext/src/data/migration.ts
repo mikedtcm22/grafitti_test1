@@ -1,5 +1,5 @@
 import { ChromeStorageDAL } from './chrome-storage';
-import { SupabaseDAL, Profile, Style, Tag } from './index';
+import { SupabaseDAL } from './index';
 
 interface MigrationStats {
     profiles: { total: number; migrated: number; errors: number };

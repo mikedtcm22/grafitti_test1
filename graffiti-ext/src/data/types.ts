@@ -5,15 +5,22 @@ export interface Profile {
     display_name: string;
     passcode_hash: string;
     created_at: string;
+    selected_style_id?: string | null;
 }
 
 export interface Style {
     id: string;
     name: string;
-    font_url: string;
-    svg_url: string;
+    font_family?: string; // optional for legacy rows
+    font_url?: string;    // legacy field (will be replaced by font_fallback_url)
+    svg_url?: string;     // legacy field (will be replaced by cross_out_svg_url)
+    font_fallback_url?: string | null;
+    font_cdn_url?: string | null;
+    cross_out_svg_url?: string | null;
+    meta?: any; // JSON blob with additional settings (stroke widths, colours, etc.)
     premium: boolean;
     created_at: string;
+    owner_profile_id?: string | null;
 }
 
 export interface Tag {
@@ -43,4 +50,8 @@ export interface DataAccessLayer {
     createStyle(style: Omit<Style, 'id' | 'created_at'>): Promise<Style>;
     getStyles(): Promise<Style[]>;
     getOwnedStyles(profileId: string): Promise<Style[]>;
+
+    // Style selection helpers
+    setActiveStyle(profileId: string, styleId: string): Promise<void>;
+    getActiveStyle(profileId: string): Promise<string | null>; // returns styleId
 } 

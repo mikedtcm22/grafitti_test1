@@ -1,16 +1,47 @@
 // Content script for Graffiti Extension
 
 import { extractAllPricesFromSubtree, parsePrice, fetchBtcUsdRate, usdToBtcAndSats, isLikelyPrice } from './priceUtils';
-import { OverlayManager } from './overlay/OverlayManager';
+import { LightweightStyleLoader } from './style-loader-lightweight';
+import { generateMarkerOverlay } from './overlay/marker-overlay';
+import { generateSprayPaintOverlay } from './overlay/spray-paint-overlay';
+import { getVisiblePriceRect } from './overlay/position-utils';
+import { CrossOutRenderers } from './overlay/cross-out-renderers';
 
 // Add version identifier
 const VERSION = '1.0.2';
 
+// Global overlay system
+
 // Log initialization
 console.log('[Graffiti Extension] Content script initialized - Version:', VERSION);
 
-// Initialize overlay manager
-const overlayManager = new OverlayManager();
+// Initialize style loader
+let styleLoader: LightweightStyleLoader;
+let currentActiveStyle: any = null; // Track current style for global overlay system
+
+// Initialize the extension with style loading
+async function initializeExtension() {
+  try {
+    console.log('[Graffiti Extension] Initializing extension...');
+    
+    // Initialize style loader
+    styleLoader = LightweightStyleLoader.getInstance();
+    
+    // Load active style
+    const activeStyle = await styleLoader.loadActiveStyle();
+    console.log('[Graffiti Extension] Loaded active style:', activeStyle?.name || 'default');
+    
+    // Store current style for global overlay system
+    currentActiveStyle = activeStyle;
+    
+    console.log('[Graffiti Extension] Extension initialized successfully');
+  } catch (error) {
+    console.error('[Graffiti Extension] Error initializing extension:', error);
+  }
+}
+
+// Initialize immediately
+initializeExtension();
 
 // Store overlay state for robust tracking
 let graffitiOverlayState: {
@@ -183,9 +214,112 @@ document.addEventListener('contextmenu', (event) => {
 }, true);
 
 // Listen for messages from background
-// @ts-expect-error: Chrome types may not be available in the build environment
 chrome.runtime.onMessage.addListener((message: any, sender: chrome.runtime.MessageSender, sendResponse: (response?: any) => void) => {
+  // CS-5.5: Enhanced message validation and error handling
+  console.log('[Graffiti Extension] ===== MESSAGE RECEIVED =====');
+  console.log('[Graffiti Extension] Message:', message);
+  console.log('[Graffiti Extension] Sender:', sender);
+  console.log('[Graffiti Extension] Timestamp:', new Date().toISOString());
+  
+  // Validate message structure
+  if (!message || typeof message !== 'object') {
+    console.warn('[Graffiti Extension] Invalid message received:', message);
+    sendResponse({ success: false, error: 'Invalid message format' });
+    return false;
+  }
+  
+  if (message.type === 'STYLE_CHANGED') {
+    console.log('[Graffiti Extension] Processing STYLE_CHANGED message...');
+    
+    // CS-5.5: Validate required fields
+    if (!message.styleId) {
+      console.error('[Graffiti Extension] STYLE_CHANGED missing styleId');
+      sendResponse({ success: false, error: 'Missing styleId' });
+      return false;
+    }
+    
+    // Handle style change from popup or background
+    (async () => {
+      try {
+        console.log('[Graffiti Extension] Updating style to:', message.styleId);
+        console.log('[Graffiti Extension] Message source:', message.source || 'unknown');
+        
+        // CS-5.5: Robust style loading with fallback
+        let newStyle = null;
+        
+        if (styleLoader) {
+          try {
+            // Try to get the style from the style loader
+            const styles = await styleLoader.getStyles();
+            newStyle = styles.find((s: any) => s.id === message.styleId);
+            console.log('[Graffiti Extension] Found style via styleLoader:', newStyle?.name);
+          } catch (styleLoaderError) {
+            console.warn('[Graffiti Extension] StyleLoader failed, trying fallback:', styleLoaderError);
+          }
+        }
+        
+        // CS-5.5: Fallback to chrome storage if styleLoader fails
+        if (!newStyle) {
+          try {
+            const result = await chrome.storage.local.get('styles');
+            const styles = result.styles || [];
+            newStyle = styles.find((s: any) => s.id === message.styleId);
+            console.log('[Graffiti Extension] Found style via chrome storage fallback:', newStyle?.name);
+          } catch (storageError) {
+            console.warn('[Graffiti Extension] Chrome storage fallback failed:', storageError);
+          }
+        }
+        
+        // CS-5.5: Final hardcoded fallback
+        if (!newStyle) {
+          console.warn('[Graffiti Extension] No style found, using hardcoded fallback');
+          newStyle = {
+            id: message.styleId,
+            name: message.styleId === 'spray-paint' ? 'spray-paint' : 'marker',
+            font_family: 'Comic Sans MS'
+          };
+        }
+        
+        // Update the global current style variable for global overlay system
+        currentActiveStyle = newStyle;
+        console.log('[Graffiti Extension] ✅ Updated global current style:', newStyle.name);
+        
+        // Style updated successfully - global overlay system will use currentActiveStyle
+        console.log('[Graffiti Extension] ✅ Updated global style for overlay system:', newStyle.name);
+        
+        // CS-5.5: Send detailed success response
+        const response = {
+          success: true,
+          styleName: newStyle.name,
+          styleId: newStyle.id,
+          timestamp: new Date().toISOString(),
+          source: message.source || 'unknown'
+        };
+        
+        console.log('[Graffiti Extension] ✅ Style change completed successfully:', response);
+        sendResponse(response);
+        
+      } catch (error) {
+        console.error('[Graffiti Extension] ❌ Error updating style:', error);
+        
+        // CS-5.5: Detailed error response
+        const errorResponse = {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error',
+          errorType: error instanceof Error ? error.constructor.name : 'UnknownError',
+          timestamp: new Date().toISOString(),
+          context: 'STYLE_CHANGED_handler'
+        };
+        
+        sendResponse(errorResponse);
+      }
+    })();
+    
+    return true; // Keep message channel open for async response
+  }
+  
   if (message && (message.type === 'GRAFFITI_GET_TARGET' || message.action === 'convertToBTC')) {
+    console.log('[Graffiti] Context menu action triggered for:', (window as any).graffitiLastRightClickedElement);
     // For manual testing: log detection attempt
     console.log('\n[Graffiti Extension] ===== Price Detection Started =====');
     console.log('[Graffiti Extension] URL:', window.location.href);
@@ -354,21 +488,24 @@ chrome.runtime.onMessage.addListener((message: any, sender: chrome.runtime.Messa
       // Create fallback overlay if no price found
       if (root instanceof Element) {
         const rect = root.getBoundingClientRect();
-        try {
-          console.log('[Graffiti Extension] Creating fallback overlay');
-          overlayManager.createOverlay({
-            id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
-            type: 'fallback',
-            position: 'auto',
-            targetElement: root as HTMLElement,
-            rect,
-            price: '',
-            style: overlayManager.getStyle('default')
-          });
-          console.log('[Graffiti Extension] Fallback overlay created successfully');
-        } catch (error) {
-          console.error('[Graffiti Extension] Error creating fallback overlay:', error);
-        }
+        (async () => {
+          try {
+            console.log('[Graffiti Extension] Creating fallback global overlay');
+            
+            // Use the current active style from global variable
+            const styleName = currentActiveStyle?.name || 'marker';
+            
+            // Create fallback overlay using global overlay system with centering
+            createGlobalOverlay(root, rect, '₿0.00000', styleName, {
+              useCentering: true,
+              useCrossOutRenderers: true
+            });
+            
+            console.log('[Graffiti Extension] Fallback global overlay created successfully');
+          } catch (error) {
+            console.error('[Graffiti Extension] Error creating fallback global overlay:', error);
+          }
+        })();
       }
     } else {
       console.log('[Graffiti Extension] Detected prices:', found.map(f => ({
@@ -402,8 +539,8 @@ chrome.runtime.onMessage.addListener((message: any, sender: chrome.runtime.Messa
             try {
               console.log('[Graffiti Extension] Processing price:', f.priceStr);
               const { value, currency } = parsePrice(f.priceStr);
-              if (currency !== 'USD') {
-                console.log(`[Graffiti Extension] Skipping non-USD price: ${f.priceStr}`);
+              if (currency !== 'USD' || !value || value <= 0) {
+                console.log('[Graffiti Extension] Skipping invalid or non-USD price:', f.priceStr);
                 continue;
               }
               const btcDisplay = usdToBtcAndSats(value, btcUsdRate);
@@ -459,30 +596,20 @@ chrome.runtime.onMessage.addListener((message: any, sender: chrome.runtime.Messa
                 });
 
                 try {
-                  console.log('[Graffiti Extension] Calling overlayManager.createOverlay');
-                  overlayManager.createOverlay({
-                    id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
-                    type: 'price',
-                    position: 'auto',
-                    targetElement: anchor,
-                    rect,
-                    price: `${f.priceStr} / ${btcDisplay}`,
-                    style: {
-                      theme: {
-                        primary: '#FF6B00',
-                        secondary: '#FFB800',
-                        background: '#FFFFFF',
-                        text: '#000000'
-                      },
-                      animation: {
-                        duration: 300,
-                        easing: 'ease-in-out'
-                      }
-                    }
+                  console.log('[Graffiti Extension] Creating global overlay');
+                  
+                  // Use the current active style from global variable
+                  const styleName = currentActiveStyle?.name || 'marker';
+                  
+                  // Create overlay using global overlay system with centering
+                  createGlobalOverlay(anchor, rect, btcDisplay, styleName, {
+                    useCentering: true,
+                    useCrossOutRenderers: true
                   });
-                  console.log('[Graffiti Extension] Overlay creation completed successfully');
+                  
+                  console.log('[Graffiti Extension] Global overlay creation completed successfully');
                 } catch (error) {
-                  console.error('[Graffiti Extension] Error creating overlay:', error);
+                  console.error('[Graffiti Extension] Error creating global overlay:', error);
                   // Log the full error details
                   if (error instanceof Error) {
                     console.error('[Graffiti Extension] Error details:', {
@@ -585,36 +712,24 @@ chrome.runtime.onMessage.addListener((message: any, sender: chrome.runtime.Messa
         height: rect.height
       });
       
-      // Create the overlay
+      // Create the overlay using unified global overlay system
       try {
-        const overlayManager = new OverlayManager();
-        overlayManager.createOverlay({
-          id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
-          type: 'price',
-          position: 'auto',
-          style: {
-            theme: {
-              primary: '#FF6B00',
-              secondary: '#FFB800',
-              background: '#FFFFFF',
-              text: '#000000'
-            },
-            animation: {
-              duration: 300,
-              easing: 'ease-in-out'
-            }
-          },
-          targetElement: targetContainer as HTMLElement,
-          rect: rect,
-          price: String(price)
+        // Convert price to BTC format (simplified for this message type)
+        const btcDisplay = `₿${price}`; // Simplified BTC display
+        const styleName = currentActiveStyle?.name || 'marker';
+        
+        createGlobalOverlay(targetContainer, rect, btcDisplay, styleName, {
+          useCentering: true,
+          useCrossOutRenderers: true
         });
-        console.log('[ContentScript] Overlay created successfully with container:', {
+        
+        console.log('[ContentScript] Global overlay created successfully with container:', {
           type: targetContainer.nodeType,
           name: targetContainer.nodeName,
           class: targetContainer.className
         });
       } catch (error) {
-        console.error('[ContentScript] Error creating overlay:', error);
+        console.error('[ContentScript] Error creating global overlay:', error);
       }
     }
   }
@@ -624,5 +739,150 @@ chrome.runtime.onMessage.addListener((message: any, sender: chrome.runtime.Messa
 
 (window as any).isLikelyPrice = isLikelyPrice;
 
+console.log('[Graffiti] Content script loaded and listening for context menu');
 console.log('[Graffiti Extension] Content script loaded'); 
-console.log('[Graffiti Extension] Content script loaded'); 
+
+// Unified overlay system: All overlays are created and managed via createGlobalOverlay with centering and layering logic. Legacy overlay helpers and metadata have been removed.
+
+// Create overlay using global overlay system
+function createGlobalOverlay(
+  targetNode: Node, 
+  rect: DOMRect, 
+  btcText: string, 
+  styleName: string = 'marker',
+  options?: {
+    useCentering?: boolean; // Enable getVisiblePriceRect + midLineY
+    useCrossOutRenderers?: boolean; // Enable new renderers
+  }
+) {
+  const overlay = document.createElement('div');
+  overlay.className = 'graffiti-overlay';
+  overlay.style.cssText = `
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 0 !important;
+    height: 0 !important;
+    pointer-events: none !important;
+    z-index: 2147483647 !important;
+    overflow: visible !important;
+  `;
+  
+  document.body.appendChild(overlay);
+
+  // Get computed font size
+  let fontSize = 16; // default fallback
+  if (targetNode.parentElement) {
+    const computedStyle = window.getComputedStyle(targetNode.parentElement);
+    fontSize = parseFloat(computedStyle.fontSize) || 16;
+  }
+
+  // Use centering logic if enabled
+  let finalRect = rect;
+  let midLineY: number | undefined;
+  
+  if (options?.useCentering && targetNode instanceof HTMLElement) {
+    try {
+      const { rect: centeredRect, midLineY: centerY } = getVisiblePriceRect(targetNode);
+      finalRect = centeredRect;
+      midLineY = centerY;
+      console.log('[Graffiti Extension] Using centering logic:', { midLineY, rect: centeredRect });
+    } catch (error) {
+      console.warn('[Graffiti Extension] Centering logic failed, using fallback:', error);
+    }
+  }
+
+  // Generate overlay element based on style
+  let overlayElement: HTMLElement;
+  
+  if (options?.useCrossOutRenderers && targetNode instanceof HTMLElement) {
+    // Use new CrossOutRenderers with centering support
+    const currentStyle = currentActiveStyle || { name: styleName };
+    // Convert midLineY to local coordinates
+    const relativeMidLine = midLineY != null ? midLineY - finalRect.top : undefined;
+    if (styleName === 'spray-paint') {
+      overlayElement = CrossOutRenderers.renderDoubleXCrossOut({
+        width: finalRect.width,
+        height: finalRect.height,
+        style: currentStyle,
+        midLineY: relativeMidLine
+      });
+    } else {
+      // Default to marker style
+      overlayElement = CrossOutRenderers.renderMarkerStrokeCrossOut({
+        width: finalRect.width,
+        height: finalRect.height,
+        style: currentStyle,
+        midLineY: relativeMidLine
+      });
+    }
+    // Add BTC text overlay
+    const btcPrice = document.createElement('div');
+    btcPrice.className = 'btc-price';
+    const btcOnly = btcText.split('/').pop()?.trim() || btcText;
+    btcPrice.textContent = btcOnly;
+    // Get font family from current style
+    const fontFamily = currentStyle.font_family || "'Permanent Marker', 'Rock Salt', cursive, sans-serif";
+    btcPrice.style.cssText = `
+      color: #FF6B00 !important;
+      background: transparent !important;
+      padding: 0 8px !important;
+      border-radius: 4px !important;
+      font-weight: bold !important;
+      font-family: ${fontFamily} !important;
+      font-size: ${fontSize * 1.3}px !important;
+      position: absolute !important;
+      top: -24px !important;
+      left: 60px !important;
+      z-index: 2147483647 !important;
+      text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000 !important;
+      -webkit-text-stroke: 1px #000;
+      pointer-events: none !important;
+    `;
+    overlayElement.appendChild(btcPrice);
+    // Set explicit width/height on overlayElement
+    overlayElement.style.width = `${finalRect.width}px`;
+    overlayElement.style.height = `${finalRect.height}px`;
+  } else {
+    // Use legacy overlay generators
+    if (styleName === 'spray-paint') {
+      overlayElement = generateSprayPaintOverlay({
+        width: finalRect.width,
+        fontSize: fontSize,
+        btcText: btcText,
+        originalRect: finalRect
+      });
+    } else {
+      // Default to marker style
+      overlayElement = generateMarkerOverlay({
+        width: finalRect.width,
+        fontSize: fontSize,
+        btcText: btcText,
+        originalRect: finalRect
+      });
+    }
+    // Set explicit width/height on overlayElement
+    overlayElement.style.width = `${finalRect.width}px`;
+    overlayElement.style.height = `${finalRect.height}px`;
+  }
+
+  // Position the overlay
+  overlayElement.style.left = `${finalRect.left + window.scrollX}px`;
+  overlayElement.style.top = `${finalRect.top + window.scrollY}px`;
+
+  // Add to global overlay container
+  overlay.appendChild(overlayElement);
+  console.log('[Graffiti Extension] Appended cross-out SVG:', overlayElement);
+
+  console.log('[Graffiti Extension] Created global overlay:', {
+    style: styleName,
+    useCentering: options?.useCentering,
+    useCrossOutRenderers: options?.useCrossOutRenderers,
+    position: { x: finalRect.left + window.scrollX, y: finalRect.top + window.scrollY },
+    size: { width: finalRect.width, height: finalRect.height },
+    fontSize: fontSize,
+    midLineY
+  });
+
+  return overlayElement;
+} 

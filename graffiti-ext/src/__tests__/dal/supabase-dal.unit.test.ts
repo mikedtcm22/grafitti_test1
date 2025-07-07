@@ -15,7 +15,7 @@ import { Profile, Tag } from '../../data/types';
 // Chainable mock builder for Supabase queries
 function createChainableMock(finalPromise: any): any {
   const chain: any = {};
-  const methods = ['from', 'insert', 'select', 'eq', 'delete'];
+  const methods = ['from', 'insert', 'select', 'eq', 'delete', 'update'];
   methods.forEach((method) => {
     chain[method] = jest.fn(() => chain);
   });
@@ -203,8 +203,42 @@ describe('SupabaseDAL (unit, mock)', () => {
     });
 
     it('getOwnedStyles returns empty array', async () => {
+      // @ts-ignore
+      (dal as any).client = createChainableMock(Promise.resolve({ data: [], error: null }));
       const result = await dal.getOwnedStyles('profile-id');
       expect(result).toEqual([]);
+    });
+
+    it('setActiveStyle resolves on success', async () => {
+      // @ts-ignore
+      (dal as any).client = createChainableMock(Promise.resolve({ error: null }));
+      await expect(dal.setActiveStyle('profile-id', 'style-id')).resolves.toBeUndefined();
+    });
+
+    it('setActiveStyle throws on error', async () => {
+      // @ts-ignore
+      (dal as any).client = createChainableMock(Promise.resolve({ error: { message: 'fail' } }));
+      await expect(dal.setActiveStyle('profile-id', 'style-id')).rejects.toEqual({ message: 'fail' });
+    });
+
+    it('getActiveStyle returns style id on success', async () => {
+      // @ts-ignore
+      (dal as any).client = createChainableMock(Promise.resolve({ data: { selected_style_id: 'style-id' }, error: null }));
+      const result = await dal.getActiveStyle('profile-id');
+      expect(result).toBe('style-id');
+    });
+
+    it('getActiveStyle returns null when no style selected', async () => {
+      // @ts-ignore
+      (dal as any).client = createChainableMock(Promise.resolve({ data: { selected_style_id: null }, error: null }));
+      const result = await dal.getActiveStyle('profile-id');
+      expect(result).toBeNull();
+    });
+
+    it('getActiveStyle throws on error', async () => {
+      // @ts-ignore
+      (dal as any).client = createChainableMock(Promise.resolve({ data: null, error: { message: 'fail' } }));
+      await expect(dal.getActiveStyle('profile-id')).rejects.toEqual({ message: 'fail' });
     });
   });
 }); 

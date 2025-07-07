@@ -4,7 +4,7 @@ import { resolve } from 'path'
 
 // https://vite.dev/config/
 export default defineConfig({
-  base: './',
+  base: '', // IMPORTANT for Chrome MV3 - ensures relative asset paths
   plugins: [react()],
   build: {
     outDir: '../dist/popup',

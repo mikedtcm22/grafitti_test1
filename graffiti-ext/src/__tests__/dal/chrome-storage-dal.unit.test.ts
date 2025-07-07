@@ -298,4 +298,70 @@ describe('ChromeStorageDAL', () => {
       expect(tags).toEqual([]);
     });
   });
+
+  describe('Style Selection Operations', () => {
+    it('should set active style for a profile', async () => {
+      const profile = await dal.createProfile('Test User', 'hash123');
+      const style = await dal.createStyle({
+        name: 'Test Style',
+        font_url: 'https://example.com/font',
+        svg_url: 'https://example.com/svg',
+        premium: false
+      });
+
+      await dal.setActiveStyle(profile.id, style.id);
+
+      // Verify the profile was updated with selected_style_id
+      const updatedProfile = await dal.getProfile(profile.id);
+      expect(updatedProfile?.selected_style_id).toBe(style.id);
+    });
+
+    it('should get active style for a profile', async () => {
+      const profile = await dal.createProfile('Test User', 'hash123');
+      const style = await dal.createStyle({
+        name: 'Test Style',
+        font_url: 'https://example.com/font',
+        svg_url: 'https://example.com/svg',
+        premium: false
+      });
+
+      // Set active style
+      await dal.setActiveStyle(profile.id, style.id);
+
+      // Get active style
+      const activeStyleId = await dal.getActiveStyle(profile.id);
+      expect(activeStyleId).toBe(style.id);
+    });
+
+    it('should return null when no active style is set', async () => {
+      const profile = await dal.createProfile('Test User', 'hash123');
+
+      const activeStyleId = await dal.getActiveStyle(profile.id);
+      expect(activeStyleId).toBeNull();
+    });
+
+    it('should update active style when changed', async () => {
+      const profile = await dal.createProfile('Test User', 'hash123');
+      const style1 = await dal.createStyle({
+        name: 'Style 1',
+        font_url: 'https://example.com/font1',
+        svg_url: 'https://example.com/svg1',
+        premium: false
+      });
+      const style2 = await dal.createStyle({
+        name: 'Style 2',
+        font_url: 'https://example.com/font2',
+        svg_url: 'https://example.com/svg2',
+        premium: true
+      });
+
+      // Set initial active style
+      await dal.setActiveStyle(profile.id, style1.id);
+      expect(await dal.getActiveStyle(profile.id)).toBe(style1.id);
+
+      // Change to different style
+      await dal.setActiveStyle(profile.id, style2.id);
+      expect(await dal.getActiveStyle(profile.id)).toBe(style2.id);
+    });
+  });
 }); 

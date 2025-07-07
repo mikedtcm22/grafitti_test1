@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Graffiti Extension",
-  "version": "0.1.0",
+  "version": "0.0.3.7",
   "description": "Add graffiti-style annotations to any website via right-click context menu.",
   "permissions": [
     "contextMenus",

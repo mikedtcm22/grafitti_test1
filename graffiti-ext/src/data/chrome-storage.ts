@@ -92,4 +92,19 @@ export class ChromeStorageDAL implements DataAccessLayer {
         const { tags = [] } = await chrome.storage.local.get('tags');
         return tags;
     }
+
+    // ---------- Style selection helpers ----------
+    async setActiveStyle(profileId: string, styleId: string): Promise<void> {
+        const { profiles = [] } = await chrome.storage.local.get(this.STORAGE_KEYS.PROFILES);
+        const updatedProfiles = profiles.map((p: Profile) =>
+            p.id === profileId ? { ...p, selected_style_id: styleId } : p
+        );
+        await chrome.storage.local.set({ [this.STORAGE_KEYS.PROFILES]: updatedProfiles });
+    }
+
+    async getActiveStyle(profileId: string): Promise<string | null> {
+        const { profiles = [] } = await chrome.storage.local.get(this.STORAGE_KEYS.PROFILES);
+        const profile = profiles.find((p: Profile) => p.id === profileId);
+        return profile?.selected_style_id ?? null;
+    }
 } 

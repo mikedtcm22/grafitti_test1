@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Marker Style Prototype</title>
+  <style>
+    body { font-family: sans-serif; background-color: #f0f0f0; padding: 2em; }
+    .price-tag { font-size: 48px; color: #333; display: inline-block; border: 1px dashed #ccc; }
+    .price-container { position: relative; display: inline-block; }
+    .overlay-svg {
+      position: absolute;
+      top: 50%;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      transform: translateY(-50%);
+      pointer-events: none;
+      overflow: visible;
+    }
+    .marker-path {
+      stroke-dasharray: 1000;
+      stroke-dashoffset: 1000;
+      animation: draw-marker 1.5s ease-in-out forwards;
+    }
+    .marker-text {
+      opacity: 0;
+      animation: fade-in-text 1s ease-in forwards 1s;
+    }
+    @keyframes draw-marker {
+      to {
+        stroke-dashoffset: 0;
+      }
+    }
+    @keyframes fade-in-text {
+      to {
+        opacity: 1;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Marker Style Prototype</h1>
+  <p>This is a prototype for the stylized marker effect with a scribble cross-out.</p>
+
+  <div class="price-container">
+    <span class="price-tag">$987.65</span>
+    <svg class="overlay-svg" viewBox="-20 -40 200 120">
+      <!-- Scribble cross-out based on the reference image -->
+      <path
+        class="marker-path"
+        d="M0,2 L130,12 L0,22 L130,32 L0,42 L130,52"
+        stroke="#181818" 
+        stroke-width="8" 
+        fill="none" 
+        stroke-linecap="round" 
+        stroke-linejoin="round"
+      />
+      <!-- New price text with marker effect -->
+      <g class="marker-text">
+        <text x="135" y="0" dominant-baseline="middle" text-anchor="start"
+          font-family="'Comic Sans MS', 'Chalkduster', 'fantasy'"
+          font-size="40"
+          stroke-width="2"
+          stroke="#181818"
+          fill="#FF6B00">
+          ₿0.00123
+        </text>
+      </g>
+    </svg>
+  </div>
+
+  <script>
+    function generateMarkerOverlay({ width, fontSize, btcText = "₿0.00123" }) {
+      const btcFontSize = fontSize * 1.3;
+      const pathLength = width + 20; // 10px padding on each side
+      const scribbleStrokeWidth = fontSize * 0.2;
+
+      // Position BTC text above and to the right
+      const textX = width + 15;
+      const textY = -5;
+
+      // Adjust viewBox to fit everything
+      const viewBoxWidth = pathLength + btcFontSize * btcText.length * 0.6; // Estimate text width
+      const viewBoxHeight = btcFontSize + 40;
+      const viewBoxX = -10;
+      const viewBoxY = -btcFontSize;
+
+      const svg = `
+        <svg class="overlay-svg" viewBox="${viewBoxX} ${viewBoxY} ${viewBoxWidth} ${viewBoxHeight}">
+          <path
+            class="marker-path"
+            d="M0,${fontSize * 0.1} L${pathLength},${fontSize * 0.25} L0,${fontSize * 0.45} L${pathLength},${fontSize * 0.65} L0,${fontSize * 0.85}"
+            stroke="#181818" 
+            stroke-width="${scribbleStrokeWidth}" 
+            fill="none" 
+            stroke-linecap="round" 
+            stroke-linejoin="round"
+          />
+          <g class="marker-text">
+            <text x="${textX}" y="${textY}" dominant-baseline="middle" text-anchor="start"
+              font-family="'Comic Sans MS', 'Chalkduster', 'fantasy'"
+              font-size="${btcFontSize}"
+              stroke-width="2"
+              stroke="#181818"
+              fill="#FF6B00">
+              ${btcText}
+            </text>
+          </g>
+        </svg>
+      `;
+      return svg;
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const priceTag = document.querySelector('.price-tag');
+      const priceContainer = document.querySelector('.price-container');
+      
+      const rect = priceTag.getBoundingClientRect();
+      const computedStyle = window.getComputedStyle(priceTag);
+      const fontSize = parseFloat(computedStyle.fontSize);
+
+      const overlayHTML = generateMarkerOverlay({
+        width: rect.width,
+        fontSize: fontSize,
+      });
+
+      // Clear old SVG and add new one
+      const oldSvg = priceContainer.querySelector('.overlay-svg');
+      if (oldSvg) {
+        oldSvg.remove();
+      }
+      priceContainer.insertAdjacentHTML('beforeend', overlayHTML);
+    });
+  </script>
+
+</body>
+</html> 

@@ -104,6 +104,27 @@ export class SupabaseDAL implements DataAccessLayer {
         if (error) throw error;
         return data as Tag[];
     }
+
+    // New: set the active style for a profile
+    async setActiveStyle(profileId: string, styleId: string): Promise<void> {
+        const { error } = await this.client
+            .from('profiles')
+            .update({ selected_style_id: styleId })
+            .eq('id', profileId);
+
+        if (error) throw error;
+    }
+
+    async getActiveStyle(profileId: string): Promise<string | null> {
+        const { data, error } = await this.client
+            .from('profiles')
+            .select('selected_style_id')
+            .eq('id', profileId)
+            .single();
+
+        if (error) throw error;
+        return (data?.selected_style_id as string) || null;
+    }
 }
 
 // Factory function to create the appropriate DAL implementation

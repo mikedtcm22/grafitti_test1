@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Spray Paint Style Prototype</title>
+  <style>
+    body { font-family: sans-serif; background-color: #f0f0f0; padding: 2em; }
+    .price-tag { font-size: 24px; color: #333; }
+    .price-container { position: relative; display: inline-block; }
+    .overlay-svg {
+      position: absolute;
+      top: 50%;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      transform: translateY(-50%);
+      pointer-events: none;
+      overflow: visible;
+    }
+    .spray-line {
+      stroke-dasharray: 1000;
+      stroke-dashoffset: 1000;
+      animation: draw-spray 1.6s ease-out forwards;
+    }
+    .btc-text-spray {
+      clip-path: url(#spray-clip);
+    }
+    .clip-rect {
+      animation: reveal-spray 1s ease-out forwards 1.8s;
+    }
+    @keyframes draw-spray {
+      to {
+        stroke-dashoffset: 0;
+      }
+    }
+    @keyframes reveal-spray {
+      from { transform: translateX(-100%); }
+      to { transform: translateX(0); }
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Spray Paint Style Prototype</h1>
+  <p>This is a prototype for the hyper-realistic spray paint effect.</p>
+
+  <div class="price-container">
+    <span class="price-tag">$1,234.56</span>
+    <svg class="overlay-svg">
+      <defs>
+        <!-- Filter for the main spray effect -->
+        <filter id="spray-paint-texture" x="-50%" y="-50%" width="200%" height="200%">
+          <!-- Generate a rough, turbulent texture -->
+          <feTurbulence type="fractalNoise" baseFrequency="0.1 0.4" numOctaves="3" seed="10" result="turbulence"/>
+          <!-- Use the texture to displace the source graphic, creating rough edges -->
+          <feDisplacementMap in="SourceGraphic" in2="turbulence" scale="5" xChannelSelector="R" yChannelSelector="G" result="displaced"/>
+          <!-- Apply a slight blur to soften the effect -->
+          <feGaussianBlur in="displaced" stdDeviation="1.5" result="blurred"/>
+        </filter>
+        <!-- Filter for the fine overspray speckles -->
+        <filter id="spray-paint-speckles" x="-50%" y="-50%" width="200%" height="200%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.7" numOctaves="1" seed="20" result="speckle_noise"/>
+          <feColorMatrix in="speckle_noise" type="matrix" values="1 0 0 0 0
+                                                                  0 1 0 0 0
+                                                                  0 0 1 0 0
+                                                                  0 0 0 3 -1" result="threshold_speckles"/>
+        </filter>
+        <!-- Filter for sharper spray text -->
+        <filter id="sharp-spray-text" x="-50%" y="-50%" width="200%" height="200%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.4" numOctaves="1" seed="30" result="turbulence"/>
+          <feDisplacementMap in="SourceGraphic" in2="turbulence" scale="3" xChannelSelector="R" yChannelSelector="G" result="displaced"/>
+          <feGaussianBlur in="displaced" stdDeviation="1" result="blurred"/>
+        </filter>
+        <!-- Clip path for the text reveal animation -->
+        <clipPath id="spray-clip">
+          <!-- The revealing rectangle, animated via CSS -->
+          <rect class="clip-rect" x="-5" y="-30" width="150" height="60" fill="white" />
+        </clipPath>
+      </defs>
+
+      <!-- The spray paint cross-out effect -->
+      <g filter="url(#spray-paint-texture)">
+        <!-- The main orange cross-out line -->
+        <line class="spray-line" x1="0" y1="50%" x2="100%" y2="50%" stroke="#FF6B00" stroke-width="10" />
+        <!-- The thin inner black "X" -->
+        <line class="spray-line" style="animation-duration: 1.0s; animation-delay: 0.2s;" x1="5%" y1="40%" x2="95%" y2="60%" stroke="#181818" stroke-width="1.5" />
+        <line class="spray-line" style="animation-duration: 1.0s; animation-delay: 0.4s;" x1="5%" y1="60%" x2="95%" y2="40%" stroke="#181818" stroke-width="1.5" />
+      </g>
+      
+      <!-- The overspray speckles -->
+      <rect width="100" height="100%" fill="#FF6B00" opacity="0.5" filter="url(#spray-paint-speckles)" />
+
+      <!-- The BTC price text -->
+      <g class="btc-text-spray" transform="translate(10, 0)">
+        <text x="105" y="12" dominant-baseline="middle" text-anchor="start"
+          font-family="sans-serif"
+          font-size="36"
+          font-weight="bold"
+          fill="#FF6B00">
+          ₿0.00123
+        </text>
+      </g>
+    </svg>
+  </div>
+
+</body>
+</html> 
